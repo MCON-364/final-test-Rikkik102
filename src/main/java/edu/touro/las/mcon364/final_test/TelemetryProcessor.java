@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class TelemetryProcessor {
 
     // ── declare whatever fields you need ─────────────────────────────────────
-    BlockingDeque<TelemetryEvent> events = new LinkedBlockingDeque<>();
+    BlockingQueue<TelemetryEvent> events = new LinkedBlockingQueue<>();
     ExecutorService pool;
     AtomicInteger totalProcessed =  new AtomicInteger(0);
     volatile boolean running =  false;
