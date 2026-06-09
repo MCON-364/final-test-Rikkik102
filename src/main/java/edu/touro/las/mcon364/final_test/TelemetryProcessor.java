@@ -39,7 +39,7 @@ public class TelemetryProcessor {
     BlockingQueue<TelemetryEvent> events = new LinkedBlockingQueue<>();
     ExecutorService pool;
     AtomicInteger totalProcessed =  new AtomicInteger(0);
-    volatile boolean running =  false;
+    volatile boolean running = true;
     AtomicReference<DoubleSummaryStatistics> stats = new AtomicReference<>(new DoubleSummaryStatistics());
 
     // ── public API ────────────────────────────────────────────────────────────
@@ -69,21 +69,22 @@ public class TelemetryProcessor {
         if (workerCount <= 0) {
             throw new IllegalArgumentException();
         }
-        running = true;
         ExecutorService pool = Executors.newFixedThreadPool(workerCount);
         for (int i = 0; i < workerCount; i++) {
-            pool.submit(() -> {
-               while (running || !events.isEmpty()) {
-                   try {
-                       TelemetryEvent event = events.poll(100, TimeUnit.MILLISECONDS);
-                       if (event != null) {
-                           process(event);
-                       }
-                   } catch (InterruptedException e) {
-                       e.printStackTrace();
-                   }
-               }
-            });
+            pool.submit(this::workerLoop);
+        }
+    }
+
+    private void workerLoop() {
+        while (running || !events.isEmpty()) {
+            try {
+                TelemetryEvent event = events.poll(100, TimeUnit.MILLISECONDS);
+                if (event != null) {
+                    process(event);
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 
