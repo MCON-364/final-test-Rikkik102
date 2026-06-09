@@ -39,7 +39,7 @@ public class TelemetryProcessor {
     BlockingDeque<TelemetryEvent> events = new LinkedBlockingDeque<>();
     ExecutorService pool;
     AtomicInteger totalProcessed =  new AtomicInteger(0);
-    AtomicBoolean running =  new AtomicBoolean(false);
+    volatile boolean running =  false;
     AtomicReference<DoubleSummaryStatistics> stats = new AtomicReference<>(new DoubleSummaryStatistics());
 
     // ── public API ────────────────────────────────────────────────────────────
@@ -54,8 +54,8 @@ public class TelemetryProcessor {
      */
     public void submit(TelemetryEvent event) {
         //TODO - implement this method
-        if (running.get()) {
-            events.add(event);
+        if (running) {
+            events.offer(event);
         }
     }
 
@@ -69,16 +69,18 @@ public class TelemetryProcessor {
         if (workerCount <= 0) {
             throw new IllegalArgumentException();
         }
-        running.set(true);
+        running = true;
         ExecutorService pool = Executors.newFixedThreadPool(workerCount);
         for (int i = 0; i < workerCount; i++) {
             pool.submit(() -> {
-               while (running.get() || !events.isEmpty()) {
+               while (running || !events.isEmpty()) {
                    try {
                        TelemetryEvent event = events.poll(100, TimeUnit.MILLISECONDS);
-                       process(event);
+                       if (event != null) {
+                           process(event);
+                       }
                    } catch (InterruptedException e) {
-                       throw new RuntimeException(e);
+                       e.printStackTrace();
                    }
                }
             });
@@ -87,13 +89,13 @@ public class TelemetryProcessor {
 
     // Method for the threads to process the events
     private void process(TelemetryEvent event) {
+        totalProcessed.incrementAndGet();
         stats.updateAndGet(old -> {
             DoubleSummaryStatistics current = new DoubleSummaryStatistics();
             current.combine(old);
             current.accept(event.metric());
             return current;
         });
-        totalProcessed.incrementAndGet();
     }
 
     /**
@@ -102,10 +104,10 @@ public class TelemetryProcessor {
      */
     public void stop() throws InterruptedException {
         //TODO - implement this method
-        running.set(false);
+        running = false;
         if (pool != null) {
             pool.shutdown();
-            pool.awaitTermination(10, TimeUnit.SECONDS);
+            pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         }
         while (!events.isEmpty()) {
             process(events.poll());
