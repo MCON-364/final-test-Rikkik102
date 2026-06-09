@@ -28,7 +28,7 @@ import java.util.stream.*;
 public class ProductReviewAnalyzer {
 
     //TODO - uncomment this field and initialize it in the constructor to store categories.
-    //private final List<String> categories;
+    private final List<String> categories;
 
     /**
      * Store the category tags that this analyzer will examine.
@@ -37,6 +37,10 @@ public class ProductReviewAnalyzer {
      */
     public ProductReviewAnalyzer(List<String> categories) {
       //TODO - implement this constructor
+        if (categories == null) {
+            throw new NullPointerException();
+        }
+        this.categories = List.copyOf(categories);
     }
 
     /**
@@ -47,7 +51,12 @@ public class ProductReviewAnalyzer {
      */
     public Map<String, Long> buildCategoryFrequencyMap() {
         //TODO - implement this method
-        return null;
+        return categories.stream()
+                .collect(Collectors.groupingBy(
+                        category -> category,
+                        TreeMap::new,
+                        Collectors.counting()
+                ));
     }
 
     /**
@@ -58,7 +67,11 @@ public class ProductReviewAnalyzer {
      */
     public List<String> getTopNCategories(int n) {
         //TODO - implement this method
-        return null;
+        return buildCategoryFrequencyMap().entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
+                .limit(n)
+                .map(Map.Entry::getKey)
+                .toList();
     }
 
     /**
@@ -69,7 +82,11 @@ public class ProductReviewAnalyzer {
      */
     public List<String> getCategoriesStartingWith(char prefix) {
         //TODO - implement this method
-        return null;
+        NavigableSet<String> set = new TreeSet<>(categories);
+        String from = String.valueOf(prefix);
+        char after = (char) (prefix + 1);
+        String to = String.valueOf(after);
+        return new ArrayList<>(set.subSet(from, true, to, false));
     }
 
     /**
@@ -81,6 +98,10 @@ public class ProductReviewAnalyzer {
      */
     public Optional<String> getMostReviewedInRange(String from, String to) {
         //TODO - implement this method
-        return Optional.empty();
+        TreeMap<String, Long> map = new TreeMap<>(buildCategoryFrequencyMap());
+        return map.subMap(from, true, to, true)
+                .entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey);
     }
 }
